@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var audioManager = AudioRecorderManager()
+    @EnvironmentObject var authManager: FirebaseAuthManager
     @State private var showRecordingScreen = false
     
     var body: some View {
@@ -18,16 +19,32 @@ struct ContentView: View {
             
             VStack(alignment: .leading, spacing: 0) {
                 // Bold Hero Title Section
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Echoes")
-                        .font(.system(size: 48, weight: .black))
-                        .foregroundColor(.primary)
-                    Text("Capturing ")
-                        .font(.system(size: 36, weight: .black))
-                        .foregroundColor(.gray.opacity(0.4))
-                    Text("Memories")
-                        .font(.system(size: 36, weight: .black))
-                        .foregroundColor(.gray.opacity(0.4))
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Echoes")
+                            .font(.system(size: 48, weight: .black))
+                            .foregroundColor(.primary)
+                        Text("Capturing ")
+                            .font(.system(size: 36, weight: .black))
+                            .foregroundColor(.gray.opacity(0.4))
+                        Text("Memories")
+                            .font(.system(size: 36, weight: .black))
+                            .foregroundColor(.gray.opacity(0.4))
+                    }
+                    
+                    Spacer()
+                    
+                    // Sign Out Button
+                    Button(action: {
+                        authManager.signOut()
+                    }) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .padding(12)
+                            .background(Color.white.opacity(0.3))
+                            .clipShape(Circle())
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 60)
