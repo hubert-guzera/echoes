@@ -17,7 +17,7 @@ struct SignUpView: View {
     
     var body: some View {
         ZStack {
-            Color(red: 200/255, green: 213/255, blue: 208/255)
+            Color.appBackground
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -28,7 +28,7 @@ struct SignUpView: View {
                     }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appTextPrimary)
                             .padding(12)
                             .background(Color.white.opacity(0.3))
                             .clipShape(Circle())
@@ -42,10 +42,10 @@ struct SignUpView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Create")
                         .font(.system(size: 48, weight: .black))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appTextPrimary)
                     Text("Account")
                         .font(.system(size: 36, weight: .black))
-                        .foregroundColor(.gray.opacity(0.4))
+                        .foregroundColor(.appTextPlaceholder)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 30)
@@ -54,91 +54,61 @@ struct SignUpView: View {
                 // Sign Up Form
                 VStack(spacing: 20) {
                     // Email Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Email")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.gray)
-                        
-                        TextField("Enter your email", text: $email)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.system(size: 16))
-                            .padding(16)
-                            .background(Color.white.opacity(0.8))
-                            .cornerRadius(12)
-                            .autocapitalization(.none)
-                            .keyboardType(.emailAddress)
-                    }
+                    CustomTextField(
+                        title: "Email",
+                        placeholder: "Enter your email",
+                        text: $email,
+                        keyboardType: .emailAddress,
+                        autocapitalization: .none
+                    )
                     
                     // Password Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Password")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.gray)
-                        
-                        SecureField("Enter your password", text: $password)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.system(size: 16))
-                            .padding(16)
-                            .background(Color.white.opacity(0.8))
-                            .cornerRadius(12)
-                    }
+                    CustomTextField(
+                        title: "Password",
+                        placeholder: "Enter your password",
+                        text: $password,
+                        isSecure: true
+                    )
                     
                     // Confirm Password Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Confirm Password")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.gray)
-                        
-                        SecureField("Confirm your password", text: $confirmPassword)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.system(size: 16))
-                            .padding(16)
-                            .background(Color.white.opacity(0.8))
-                            .cornerRadius(12)
-                    }
+                    CustomTextField(
+                        title: "Confirm Password",
+                        placeholder: "Confirm your password",
+                        text: $confirmPassword,
+                        isSecure: true
+                    )
                     
                     // Password Mismatch Warning
                     if !confirmPassword.isEmpty && password != confirmPassword {
                         Text("Passwords do not match")
                             .font(.system(size: 14))
-                            .foregroundColor(.red)
+                            .foregroundColor(.appError)
                     }
                     
                     // Error Message
                     if let errorMessage = authManager.errorMessage {
                         Text(errorMessage)
                             .font(.system(size: 14))
-                            .foregroundColor(.red)
+                            .foregroundColor(.appError)
                             .padding(.top, 8)
                     }
                     
                     // Sign Up Button
-                    Button(action: {
-                        guard password == confirmPassword else { return }
-                        isLoading = true
-                        authManager.signUp(email: email, password: password) { result in
-                            isLoading = false
-                            if case .success = result {
-                                isPresented = false
+                    PrimaryButton(
+                        title: "Sign Up",
+                        isLoading: isLoading,
+                        action: {
+                            guard password == confirmPassword else { return }
+                            isLoading = true
+                            authManager.signUp(email: email, password: password) { result in
+                                isLoading = false
+                                if case .success = result {
+                                    isPresented = false
+                                }
                             }
-                        }
-                    }) {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            } else {
-                                Text("Sign Up")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(isFormValid ? Color(red: 1.0, green: 0.8, blue: 0.0) : Color.gray)
-                        .cornerRadius(12)
-                    }
-                    .disabled(!isFormValid || isLoading)
+                        },
+                        isDisabled: !isFormValid
+                    )
                     .padding(.top, 8)
                 }
                 .padding(.horizontal, 24)

@@ -33,6 +33,10 @@ class FirebaseAuthManager: ObservableObject {
         Auth.auth().signIn(withEmail: email, password: password) { [weak self] result, error in
             DispatchQueue.main.async {
                 if let error = error {
+                    let nsError = error as NSError
+                    print("Sign In Error: \(nsError.localizedDescription)")
+                    print("Error Code: \(nsError.code)")
+                    print("Error Domain: \(nsError.domain)")
                     self?.errorMessage = error.localizedDescription
                     completion(.failure(error))
                 } else {

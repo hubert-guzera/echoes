@@ -16,7 +16,7 @@ struct LoginView: View {
     
     var body: some View {
         ZStack {
-            Color(red: 200/255, green: 213/255, blue: 208/255)
+            Color.appBackground
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -24,10 +24,10 @@ struct LoginView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Echoes")
                         .font(.system(size: 48, weight: .black))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appTextPrimary)
                     Text("Welcome Back")
                         .font(.system(size: 36, weight: .black))
-                        .foregroundColor(.gray.opacity(0.4))
+                        .foregroundColor(.appTextPlaceholder)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 60)
@@ -36,80 +36,56 @@ struct LoginView: View {
                 // Login Form
                 VStack(spacing: 20) {
                     // Email Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Email")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.gray)
-                        
-                        TextField("Enter your email", text: $email)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.system(size: 16))
-                            .padding(16)
-                            .background(Color.white.opacity(0.8))
-                            .cornerRadius(12)
-                            .autocapitalization(.none)
-                            .keyboardType(.emailAddress)
-                    }
+                    CustomTextField(
+                        title: "Email",
+                        placeholder: "Enter your email",
+                        text: $email,
+                        keyboardType: .emailAddress,
+                        autocapitalization: .none
+                    )
                     
                     // Password Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Password")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.gray)
-                        
-                        SecureField("Enter your password", text: $password)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.system(size: 16))
-                            .padding(16)
-                            .background(Color.white.opacity(0.8))
-                            .cornerRadius(12)
-                    }
+                    CustomTextField(
+                        title: "Password",
+                        placeholder: "Enter your password",
+                        text: $password,
+                        isSecure: true
+                    )
                     
                     // Error Message
                     if let errorMessage = authManager.errorMessage {
                         Text(errorMessage)
                             .font(.system(size: 14))
-                            .foregroundColor(.red)
+                            .foregroundColor(.appError)
                             .padding(.top, 8)
                     }
                     
                     // Login Button
-                    Button(action: {
-                        isLoading = true
-                        authManager.signIn(email: email, password: password) { result in
-                            isLoading = false
-                        }
-                    }) {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            } else {
-                                Text("Sign In")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.white)
+                    PrimaryButton(
+                        title: "Sign In",
+                        isLoading: isLoading,
+                        action: {
+                            isLoading = true
+                            authManager.signIn(email: email, password: password) { result in
+                                isLoading = false
                             }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(email.isEmpty || password.isEmpty ? Color.gray : Color(red: 1.0, green: 0.8, blue: 0.0))
-                        .cornerRadius(12)
-                    }
-                    .disabled(email.isEmpty || password.isEmpty || isLoading)
+                        },
+                        isDisabled: email.isEmpty || password.isEmpty
+                    )
                     .padding(.top, 8)
                     
                     // Sign Up Link
                     HStack {
                         Text("Don't have an account?")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.appTextSecondary)
                         
                         Button(action: {
                             showSignUp = true
                         }) {
                             Text("Sign Up")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.0))
+                                .foregroundColor(.appPrimary)
                         }
                     }
                     .padding(.top, 16)
