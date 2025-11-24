@@ -24,7 +24,7 @@ struct echoesApp: App {
     var body: some Scene {
         WindowGroup {
             if authManager.isAuthenticated {
-                ContentView()
+                MainTabView()
                     .environmentObject(authManager)
             } else {
                 LoginView(authManager: authManager)
