@@ -10,6 +10,9 @@ import AVFoundation
 import SwiftUI
 import Combine
 
+import FirebaseStorage
+import FirebaseAuth
+
 class AudioRecorderManager: NSObject, ObservableObject {
     let objectWillChange = PassthroughSubject<Void, Never>()
     
@@ -47,11 +50,19 @@ class AudioRecorderManager: NSObject, ObservableObject {
     private var playbackTimer: Timer?
     
     private let recordingsKey = "SavedRecordings"
+    private let storage = Storage.storage()
     
     override init() {
         super.init()
         setupAudioSession()
         loadRecordings()
+        
+        // Listen for auth state changes to sync recordings
+        Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            if user != nil {
+                self?.syncRecordings()
+            }
+        }
     }
     
     private func setupAudioSession() {
@@ -126,9 +137,28 @@ class AudioRecorderManager: NSObject, ObservableObject {
         if let recorder = audioRecorder {
             let duration = recordingTime
             let fileName = recorder.url.lastPathComponent
-            let newRecording = Recording(fileName: fileName, duration: duration)
+            var newRecording = Recording(fileName: fileName, duration: duration)
             recordings.insert(newRecording, at: 0)
             saveRecordings()
+            
+            // Upload if user is logged in
+            if let user = Auth.auth().currentUser {
+                uploadRecording(newRecording, userId: user.uid) { [weak self] url in
+                    if let url = url {
+                        // Update local recording with download URL
+                        if let index = self?.recordings.firstIndex(where: { $0.id == newRecording.id }) {
+                            self?.recordings[index] = Recording(
+                                id: newRecording.id,
+                                fileName: newRecording.fileName,
+                                date: newRecording.date,
+                                duration: newRecording.duration,
+                                downloadURL: url
+                            )
+                            self?.saveRecordings()
+                        }
+                    }
+                }
+            }
         }
         
         audioRecorder = nil
@@ -144,13 +174,27 @@ class AudioRecorderManager: NSObject, ObservableObject {
         
         let fileURL = getDocumentsDirectory().appendingPathComponent(recording.fileName)
         
+        // Check if file exists locally
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            startPlayback(url: fileURL, recordingId: recording.id)
+        } else if let downloadURL = recording.downloadURL {
+            // Download and play
+            downloadRecording(from: downloadURL, to: fileURL) { [weak self] success in
+                if success {
+                    self?.startPlayback(url: fileURL, recordingId: recording.id)
+                }
+            }
+        }
+    }
+    
+    private func startPlayback(url: URL, recordingId: UUID) {
         do {
-            audioPlayer = try AVAudioPlayer(contentsOf: fileURL)
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
             audioPlayer?.delegate = self
             audioPlayer?.play()
             
             isPlaying = true
-            currentPlayingId = recording.id
+            currentPlayingId = recordingId
             playbackTime = 0
             
             playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -186,6 +230,16 @@ class AudioRecorderManager: NSObject, ObservableObject {
         let fileURL = getDocumentsDirectory().appendingPathComponent(recording.fileName)
         try? FileManager.default.removeItem(at: fileURL)
         
+        // Delete from Storage if logged in
+        if let user = Auth.auth().currentUser {
+            let storageRef = storage.reference().child("users/\(user.uid)/\(recording.id.uuidString).m4a")
+            storageRef.delete { error in
+                if let error = error {
+                    print("Error deleting from storage: \(error.localizedDescription)")
+                }
+            }
+        }
+        
         recordings.removeAll { $0.id == recording.id }
         saveRecordings()
     }
@@ -205,6 +259,124 @@ class AudioRecorderManager: NSObject, ObservableObject {
            let decoded = try? JSONDecoder().decode([Recording].self, from: data) {
             recordings = decoded
         }
+    }
+    
+    // MARK: - Firebase Storage
+    
+    func uploadRecording(_ recording: Recording, userId: String, completion: @escaping (URL?) -> Void) {
+        let fileURL = getDocumentsDirectory().appendingPathComponent(recording.fileName)
+        let storageRef = storage.reference().child("users/\(userId)/\(recording.id.uuidString).m4a")
+        
+        // Create metadata
+        let metadata = StorageMetadata()
+        metadata.customMetadata = [
+            "fileName": recording.fileName,
+            "duration": String(recording.duration),
+            "date": String(recording.date.timeIntervalSince1970)
+        ]
+        
+        storageRef.putFile(from: fileURL, metadata: metadata) { metadata, error in
+            if let error = error {
+                print("Error uploading recording: \(error.localizedDescription)")
+                completion(nil)
+                return
+            }
+            
+            storageRef.downloadURL { url, error in
+                if let error = error {
+                    print("Error getting download URL: \(error.localizedDescription)")
+                    completion(nil)
+                    return
+                }
+                completion(url)
+            }
+        }
+    }
+    
+    func syncRecordings() {
+        guard let user = Auth.auth().currentUser else { return }
+        let storageRef = storage.reference().child("users/\(user.uid)")
+        
+        storageRef.listAll { [weak self] result, error in
+            if let error = error {
+                print("Error listing recordings: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let result = result else { return }
+            
+            for item in result.items {
+                // Check if we already have this recording locally (by ID, assuming ID is in filename)
+                // Filename format in storage: UUID.m4a
+                let uuidString = item.name.replacingOccurrences(of: ".m4a", with: "")
+                if let uuid = UUID(uuidString: uuidString) {
+                    if self?.recordings.contains(where: { $0.id == uuid }) == true {
+                        continue
+                    }
+                    
+                    // Fetch metadata to create Recording object
+                    item.getMetadata { metadata, error in
+                        if let error = error {
+                            print("Error getting metadata: \(error.localizedDescription)")
+                            return
+                        }
+                        
+                        if let customMetadata = metadata?.customMetadata,
+                           let fileName = customMetadata["fileName"],
+                           let durationString = customMetadata["duration"],
+                           let duration = TimeInterval(durationString),
+                           let dateString = customMetadata["date"],
+                           let timeInterval = TimeInterval(dateString) {
+                            
+                            item.downloadURL { url, error in
+                                if let url = url {
+                                    let date = Date(timeIntervalSince1970: timeInterval)
+                                    let recording = Recording(
+                                        id: uuid,
+                                        fileName: fileName,
+                                        date: date,
+                                        duration: duration,
+                                        downloadURL: url
+                                    )
+                                    
+                                    DispatchQueue.main.async {
+                                        self?.recordings.append(recording)
+                                        self?.recordings.sort(by: { $0.date > $1.date })
+                                        self?.saveRecordings()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    func downloadRecording(from url: URL, to localURL: URL, completion: @escaping (Bool) -> Void) {
+        let task = URLSession.shared.downloadTask(with: url) { localFile, response, error in
+            if let error = error {
+                print("Error downloading file: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+            
+            guard let localFile = localFile else {
+                completion(false)
+                return
+            }
+            
+            do {
+                try FileManager.default.moveItem(at: localFile, to: localURL)
+                DispatchQueue.main.async {
+                    completion(true)
+                }
+            } catch {
+                print("Error moving downloaded file: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
+        task.resume()
     }
 }
 

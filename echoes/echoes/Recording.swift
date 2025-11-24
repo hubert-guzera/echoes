@@ -12,6 +12,7 @@ struct Recording: Identifiable, Codable {
     let fileName: String
     let date: Date
     let duration: TimeInterval
+    let downloadURL: URL?
     
     var formattedDate: String {
         let formatter = DateFormatter()
@@ -26,11 +27,12 @@ struct Recording: Identifiable, Codable {
         return String(format: "%02d:%02d", minutes, seconds)
     }
     
-    init(id: UUID = UUID(), fileName: String, date: Date = Date(), duration: TimeInterval = 0) {
+    init(id: UUID = UUID(), fileName: String, date: Date = Date(), duration: TimeInterval = 0, downloadURL: URL? = nil) {
         self.id = id
         self.fileName = fileName
         self.date = date
         self.duration = duration
+        self.downloadURL = downloadURL
     }
 }
 
