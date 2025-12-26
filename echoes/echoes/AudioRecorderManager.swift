@@ -37,6 +37,10 @@ class AudioRecorderManager: NSObject, ObservableObject {
         willSet { objectWillChange.send() }
     }
     
+    var audioLevel: Float = 0.0 {
+        willSet { objectWillChange.send() }
+    }
+    
     private var audioRecorder: AVAudioRecorder?
     private var audioPlayer: AVAudioPlayer?
     private var recordingTimer: Timer?
@@ -93,13 +97,20 @@ class AudioRecorderManager: NSObject, ObservableObject {
         do {
             audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
             audioRecorder?.delegate = self
+            audioRecorder?.isMeteringEnabled = true
             audioRecorder?.record()
             
             isRecording = true
             recordingTime = 0
             
-            recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                self?.recordingTime += 0.1
+            recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+                guard let self = self else { return }
+                self.recordingTime += 0.05
+                self.audioRecorder?.updateMeters()
+                let power = self.audioRecorder?.averagePower(forChannel: 0) ?? -160
+                // Convert dB to normalized 0-1 scale
+                let normalizedLevel = max(0.0, min(1.0, (power + 60) / 60))
+                self.audioLevel = normalizedLevel
             }
         } catch {
             print("Failed to start recording: \(error.localizedDescription)")
@@ -122,6 +133,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
         
         audioRecorder = nil
         recordingTime = 0
+        audioLevel = 0.0
     }
     
     func playRecording(_ recording: Recording) {
