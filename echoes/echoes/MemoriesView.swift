@@ -8,14 +8,8 @@
 import SwiftUI
 
 struct MemoriesView: View {
+    @ObservedObject var audioManager: AudioRecorderManager
     @State private var selectedDate = Date()
-    
-    // Placeholder data
-    let memories = [
-        Memory(date: Date(), title: "Coffee with Sarah", summary: "Discussed the new project ideas."),
-        Memory(date: Date().addingTimeInterval(-86400), title: "Team Meeting", summary: "Weekly sync with the engineering team."),
-        Memory(date: Date().addingTimeInterval(-86400 * 2), title: "Grocery Shopping", summary: "Bought ingredients for dinner.")
-    ]
     
     var body: some View {
         ZStack {
@@ -25,10 +19,10 @@ struct MemoriesView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Memories")
+                    Text("Your")
                         .font(.system(size: 48, weight: .black))
                         .foregroundColor(.appTextPrimary)
-                    Text("Calendar")
+                    Text("Memories")
                         .font(.system(size: 36, weight: .black))
                         .foregroundColor(.appTextPlaceholder)
                 }
@@ -36,25 +30,42 @@ struct MemoriesView: View {
                 .padding(.top, 60)
                 .padding(.bottom, 30)
                 
-                // Calendar
-                DatePicker(
-                    "Select Date",
-                    selection: $selectedDate,
-                    displayedComponents: [.date]
-                )
-                .datePickerStyle(GraphicalDatePickerStyle())
-                .padding(.horizontal, 24)
-                .padding(.bottom, 20)
-                .accentColor(.appPrimary)
-                
-                // Memories List
+                // Recordings List
                 ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(memories) { memory in
-                            MemoryCard(memory: memory)
+                    if audioManager.recordings.isEmpty {
+                        VStack(spacing: 16) {
+                            Spacer()
+                            Image(systemName: "waveform.circle")
+                                .font(.system(size: 70))
+                                .foregroundColor(.gray.opacity(0.3))
+                            Text("No recordings yet")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.gray)
+                            Text("Tap Recording tab to start")
+                                .font(.system(size: 14))
+                                .foregroundColor(.gray.opacity(0.7))
+                            Spacer()
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(audioManager.recordings) { recording in
+                                RecordingCard(
+                                    recording: recording,
+                                    isPlaying: audioManager.currentPlayingId == recording.id && audioManager.isPlaying,
+                                    playbackTime: audioManager.currentPlayingId == recording.id ? audioManager.playbackTime : 0,
+                                    onPlay: {
+                                        audioManager.playRecording(recording)
+                                    },
+                                    onDelete: {
+                                        audioManager.deleteRecording(recording)
+                                    }
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 24)
                     }
-                    .padding(.horizontal, 24)
                 }
                 
                 Spacer()
@@ -63,44 +74,6 @@ struct MemoriesView: View {
     }
 }
 
-struct Memory: Identifiable {
-    let id = UUID()
-    let date: Date
-    let title: String
-    let summary: String
-    
-    var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: date)
-    }
-}
-
-struct MemoryCard: View {
-    let memory: Memory
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(memory.formattedDate)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.appTextSecondary)
-            
-            Text(memory.title)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.appTextPrimary)
-            
-            Text(memory.summary)
-                .font(.system(size: 14))
-                .foregroundColor(.appTextSecondary)
-                .lineLimit(2)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.6))
-        .cornerRadius(12)
-    }
-}
-
 #Preview {
-    MemoriesView()
+    MemoriesView(audioManager: AudioRecorderManager())
 }

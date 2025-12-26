@@ -8,21 +8,35 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab = 1 // Start at ContentView (middle)
+    @StateObject private var audioManager = AudioRecorderManager()
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView {
             IssuesView()
-                .tag(0)
+                .tabItem {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text("Issues")
+                }
             
-            ContentView()
-                .tag(1)
+            ContentView(audioManager: audioManager)
+                .tabItem {
+                    Image(systemName: "mic.circle.fill")
+                    Text("Recording")
+                }
             
-            MemoriesView()
-                .tag(2)
+            MemoriesView(audioManager: audioManager)
+                .tabItem {
+                    Image(systemName: "waveform.circle.fill")
+                    Text("Memories")
+                }
+            
+            OptionsView()
+                .tabItem {
+                    Image(systemName: "gearshape.fill")
+                    Text("Options")
+                }
         }
-        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-        .ignoresSafeArea()
+        .accentColor(Color(red: 1.0, green: 0.8, blue: 0.0))
     }
 }
 
