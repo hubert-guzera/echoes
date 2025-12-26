@@ -30,6 +30,12 @@ struct MainTabView: View {
                     Text("Memories")
                 }
             
+            ReflectionsView()
+                .tabItem {
+                    Image(systemName: "lightbulb.circle.fill")
+                    Text("Reflections")
+                }
+            
             OptionsView()
                 .tabItem {
                     Image(systemName: "gearshape.fill")
