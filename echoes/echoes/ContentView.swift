@@ -9,6 +9,8 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var audioManager = AudioRecorderManager()
+    @EnvironmentObject var authManager: FirebaseAuthManager
+    @State private var showRecordingScreen = false
     
     var body: some View {
         TabView {
@@ -46,6 +48,43 @@ struct RecordingView: View {
             
             VStack(alignment: .leading, spacing: 0) {
                 // Bold Hero Title Section
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Echoes")
+                            .font(.system(size: 48, weight: .black))
+                            .foregroundColor(.primary)
+                        Text("Capturing ")
+                            .font(.system(size: 36, weight: .black))
+                            .foregroundColor(.gray.opacity(0.4))
+                        Text("Memories")
+                            .font(.system(size: 36, weight: .black))
+                            .foregroundColor(.gray.opacity(0.4))
+                    }
+                    
+                    Spacer()
+                    
+                    // Sign Out Button
+                    Button(action: {
+                        authManager.signOut()
+                    }) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .padding(12)
+                            .background(Color.white.opacity(0.3))
+                            .clipShape(Circle())
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 60)
+                .padding(.bottom, 30)
+                
+                // Main Action Card
+                Button(action: {
+                    if !audioManager.isRecording {
+                        audioManager.startRecording()
+                        showRecordingScreen = true
+                    }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Echoes")
                         .font(.system(size: 48, weight: .black))
@@ -101,6 +140,18 @@ struct RecordingView: View {
                     RecordingScreen(audioManager: audioManager, isPresented: $showRecordingScreen)
                 }
                 
+                // Section Title
+                if !audioManager.recordings.isEmpty {
+                    Text("Recent Recordings")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 32)
+                        .padding(.bottom, 12)
+                }
+                
+                // Recordings Grid/List
+                
                 // Quick Recording Status
                 if audioManager.recordings.count > 0 {
                     VStack(alignment: .leading, spacing: 8) {
@@ -153,6 +204,32 @@ struct MemoriesView: View {
                             Image(systemName: "waveform.circle")
                                 .font(.system(size: 70))
                                 .foregroundColor(.gray.opacity(0.3))
+                            Text("No recordings yet")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.gray)
+                            Text("Tap above to start recording")
+                                .font(.system(size: 14))
+                                .foregroundColor(.gray.opacity(0.7))
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(audioManager.recordings) { recording in
+                                RecordingCard(
+                                    recording: recording,
+                                    isPlaying: audioManager.currentPlayingId == recording.id && audioManager.isPlaying,
+                                    playbackTime: audioManager.currentPlayingId == recording.id ? audioManager.playbackTime : 0,
+                                    onPlay: {
+                                        audioManager.playRecording(recording)
+                                    },
+                                    onDelete: {
+                                        audioManager.deleteRecording(recording)
+                                    }
+                                )
+                            }
+                        }
                             Text("No memories yet")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.gray)
