@@ -14,8 +14,8 @@ struct RecordingRecord: Codable, Identifiable {
     let duration: TimeInterval
     let status: RecordingStatus
     let createdAt: String // ISO8601 formatted date
+    let transcription: String? // Transcription from Firebase Database
     // Note: downloadURL removed - not stored in database, only used locally
-    // Note: transcription field is ignored during decoding
     
     enum RecordingStatus: String, Codable, CaseIterable {
         case incomplete = "incomplete" // Default - needs post-processing
@@ -25,12 +25,13 @@ struct RecordingRecord: Codable, Identifiable {
         case failed = "failed"         // Upload or processing failed
     }
     
-    init(id: UUID, fileName: String, storagePath: String, duration: TimeInterval, status: RecordingStatus = .incomplete, createdAt: Date = Date()) {
+    init(id: UUID, fileName: String, storagePath: String, duration: TimeInterval, status: RecordingStatus = .incomplete, createdAt: Date = Date(), transcription: String? = nil) {
         self.id = id.uuidString
         self.fileName = fileName
         self.storagePath = storagePath
         self.duration = duration
         self.status = status == .completed ? .complete : status // Normalize completed to complete
+        self.transcription = transcription
         
         let formatter = ISO8601DateFormatter()
         self.createdAt = formatter.string(from: createdAt)
@@ -53,6 +54,7 @@ struct RecordingRecord: Codable, Identifiable {
         }
         
         self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.transcription = try? container.decodeIfPresent(String.self, forKey: .transcription)
         
         // Handle status with backward compatibility for "completed"
         let statusString = try container.decode(String.self, forKey: .status)
@@ -64,7 +66,7 @@ struct RecordingRecord: Codable, Identifiable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, fileName, storagePath, duration, status, createdAt
+        case id, fileName, storagePath, duration, status, createdAt, transcription
     }
     
     var formattedDuration: String {
