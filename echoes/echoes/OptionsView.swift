@@ -48,9 +48,21 @@ struct OptionsView: View {
                                 }
                             }
                             .pickerStyle(SegmentedPickerStyle())
+                            
+                            // Quality descriptions
+                            HStack {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.appTextSecondary)
+                                
+                                Text(getQualityDescription())
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.appTextSecondary)
+                                    .lineLimit(2)
+                            }
                         }
                         .padding(20)
-                        .background(Color.white.opacity(0.3))
+                        .background(Color.appCardBackground)
                         .cornerRadius(16)
                         
                         // General Settings Section
@@ -93,7 +105,7 @@ struct OptionsView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color.white.opacity(0.3))
+                        .background(Color.appCardBackground)
                         .cornerRadius(16)
                         
                         // About Section
@@ -132,7 +144,7 @@ struct OptionsView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color.white.opacity(0.3))
+                        .background(Color.appCardBackground)
                         .cornerRadius(16)
                         
                         // Account Section
@@ -145,7 +157,7 @@ struct OptionsView: View {
                                 HStack {
                                     Text("Sign Out")
                                         .font(.system(size: 16, weight: .medium))
-                                        .foregroundColor(.red)
+                                        .foregroundColor(.appError)
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 14, weight: .semibold))
@@ -158,7 +170,7 @@ struct OptionsView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color.white.opacity(0.3))
+                        .background(Color.appCardBackground)
                         .cornerRadius(16)
                     }
                     .padding(.horizontal, 24)
@@ -167,6 +179,19 @@ struct OptionsView: View {
                 
                 Spacer()
             }
+        }
+    }
+    
+    private func getQualityDescription() -> String {
+        switch recordingQuality {
+        case 0:
+            return "Standard quality (64 kbps) - Good for most recordings, smaller file size"
+        case 1:
+            return "High quality (128 kbps) - Better audio clarity, moderate file size"
+        case 2:
+            return "Lossless (ALAC) - Best quality, larger files. Uses ~10x more storage."
+        default:
+            return ""
         }
     }
 }

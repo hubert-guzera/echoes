@@ -29,7 +29,7 @@ struct ReflectionsView: View {
                 // Header
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Weekly")
+                        Text(selectedReflectionType.rawValue)
                             .font(.system(size: 48, weight: .black))
                             .foregroundColor(.appTextPrimary)
                         Text("Reflections")
@@ -262,7 +262,7 @@ struct WeeklyReflectionCard: View {
             }
         }
         .padding(20)
-        .background(Color.white.opacity(0.6))
+        .background(Color.appCardBackground)
         .cornerRadius(16)
         .padding(.horizontal, 24)
     }
@@ -306,7 +306,7 @@ struct ReflectionPromptCard: View {
                 )
         }
         .padding(16)
-        .background(Color.white.opacity(0.3))
+        .background(Color.appCardBackground)
         .cornerRadius(12)
     }
 }
@@ -341,7 +341,7 @@ struct PreviousReflectionCard: View {
                 .lineLimit(2)
         }
         .padding(16)
-        .background(Color.white.opacity(0.4))
+        .background(Color.appCardBackgroundSecondary)
         .cornerRadius(12)
     }
 }

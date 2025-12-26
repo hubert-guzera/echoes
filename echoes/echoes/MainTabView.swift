@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @StateObject private var audioManager = AudioRecorderManager()
+    @State private var hapticFeedback = UISelectionFeedbackGenerator()
     
     var body: some View {
         TabView {
@@ -42,7 +43,13 @@ struct MainTabView: View {
                     Text("Options")
                 }
         }
-        .accentColor(Color(red: 1.0, green: 0.8, blue: 0.0))
+        .accentColor(Color.appPrimary)
+        .onChange(of: audioManager) { _, _ in
+            hapticFeedback.selectionChanged()
+        }
+        .onAppear {
+            hapticFeedback.prepare()
+        }
     }
 }
 

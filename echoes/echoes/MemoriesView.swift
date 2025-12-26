@@ -33,17 +33,32 @@ struct MemoriesView: View {
                 // Recordings List
                 ScrollView {
                     if audioManager.recordings.isEmpty {
-                        VStack(spacing: 16) {
+                        VStack(spacing: 24) {
                             Spacer()
-                            Image(systemName: "waveform.circle")
-                                .font(.system(size: 70))
-                                .foregroundColor(.gray.opacity(0.3))
-                            Text("No recordings yet")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.gray)
-                            Text("Tap Recording tab to start")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray.opacity(0.7))
+                            
+                            // Improved empty state icon
+                            ZStack {
+                                Circle()
+                                    .fill(Color.appPrimary.opacity(0.1))
+                                    .frame(width: 120, height: 120)
+                                
+                                Image(systemName: "waveform.circle")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.appPrimary)
+                            }
+                            
+                            VStack(spacing: 8) {
+                                Text("No Memories Yet")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(.appTextPrimary)
+                                
+                                Text("You haven't captured any echoes yet.\nTap the Recording tab to start.")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.appTextSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .lineSpacing(4)
+                            }
+                            
                             Spacer()
                         }
                         .frame(maxWidth: .infinity)

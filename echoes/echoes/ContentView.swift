@@ -8,13 +8,43 @@
 import SwiftUI
 
 struct ContentView: View {
-    @ObservedObject var audioManager: AudioRecorderManager
+    @StateObject private var audioManager = AudioRecorderManager()
     @EnvironmentObject var authManager: FirebaseAuthManager
     @State private var showRecordingScreen = false
     
     var body: some View {
+        TabView {
+            RecordingView(audioManager: audioManager)
+                .tabItem {
+                    Image(systemName: "mic.circle.fill")
+                    Text("Recording")
+                }
+            
+            MemoriesView(audioManager: audioManager)
+                .tabItem {
+                    Image(systemName: "waveform.circle.fill")
+                    Text("Memories")
+                }
+            
+            OptionsView(authManager: authManager)
+                .tabItem {
+                    Image(systemName: "gearshape.fill")
+                    Text("Options")
+                }
+        }
+        .accentColor(Color(red: 1.0, green: 0.8, blue: 0.0))
+    }
+}
+
+// MARK: - Recording View
+struct RecordingView: View {
+    @ObservedObject var audioManager: AudioRecorderManager
+    @State private var showRecordingScreen = false
+    @State private var hapticFeedback = UIImpactFeedbackGenerator(style: .medium)
+    
+    var body: some View {
         ZStack {
-            Color(red: 200/255, green: 213/255, blue: 208/255)
+            Color.appBackground
                 .ignoresSafeArea()
             
             VStack(alignment: .leading, spacing: 0) {
@@ -22,13 +52,13 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Echoes")
                         .font(.system(size: 48, weight: .black))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appTextPrimary)
                     Text("Capturing ")
                         .font(.system(size: 36, weight: .black))
-                        .foregroundColor(.gray.opacity(0.4))
+                        .foregroundColor(.appTextPlaceholder)
                     Text("Memories")
                         .font(.system(size: 36, weight: .black))
-                        .foregroundColor(.gray.opacity(0.4))
+                        .foregroundColor(.appTextPlaceholder)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 60)
@@ -37,6 +67,7 @@ struct ContentView: View {
                 // Main Action Card
                 Button(action: {
                     if !audioManager.isRecording {
+                        hapticFeedback.impactOccurred()
                         audioManager.startRecording()
                         showRecordingScreen = true
                     }
@@ -45,17 +76,17 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("New")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.primary)
+                                .foregroundColor(.appTextPrimary)
                             Text("Recording")
                                 .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.primary)
+                                .foregroundColor(.appTextPrimary)
                         }
                         
                         Spacer()
                         
                         ZStack {
                             Circle()
-                                .fill(Color(red: 1.0, green: 0.8, blue: 0.0))
+                                .fill(Color.appPrimary)
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: "mic.fill")
@@ -65,7 +96,7 @@ struct ContentView: View {
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity)
-                    .background(Color(red: 1.0, green: 0.8, blue: 0.0))
+                    .background(Color.appPrimary)
                     .cornerRadius(20)
                 }
                 .padding(.horizontal, 24)
@@ -79,14 +110,272 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("\(audioManager.recordings.count) memories captured")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.appTextSecondary)
                         
                         Text("Tap Memories to explore")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray.opacity(0.7))
+                            .foregroundColor(.appTextPlaceholder)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 24)
+                }
+                
+                Spacer()
+            }
+        }
+    }
+}
+
+// MARK: - Memories View
+struct MemoriesView: View {
+    @ObservedObject var audioManager: AudioRecorderManager
+    
+    var body: some View {
+        ZStack {
+            Color(red: 200/255, green: 213/255, blue: 208/255)
+                .ignoresSafeArea()
+            
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Your")
+                        .font(.system(size: 48, weight: .black))
+                        .foregroundColor(.primary)
+                    Text("Memories")
+                        .font(.system(size: 36, weight: .black))
+                        .foregroundColor(.gray.opacity(0.4))
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 60)
+                .padding(.bottom, 30)
+                
+                // Recordings List
+                ScrollView {
+                    if audioManager.recordings.isEmpty {
+                        VStack(spacing: 16) {
+                            Spacer()
+                            Image(systemName: "waveform.circle")
+                                .font(.system(size: 70))
+                                .foregroundColor(.gray.opacity(0.3))
+                            Text("No recordings yet")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.gray)
+                            Text("Tap above to start recording")
+                                .font(.system(size: 14))
+                                .foregroundColor(.gray.opacity(0.7))
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(audioManager.recordings) { recording in
+                                RecordingCard(
+                                    recording: recording,
+                                    isPlaying: audioManager.currentPlayingId == recording.id && audioManager.isPlaying,
+                                    playbackTime: audioManager.currentPlayingId == recording.id ? audioManager.playbackTime : 0,
+                                    onPlay: {
+                                        audioManager.playRecording(recording)
+                                    },
+                                    onDelete: {
+                                        audioManager.deleteRecording(recording)
+                                    }
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                }
+                
+                Spacer()
+            }
+        }
+    }
+}
+
+// MARK: - Options View
+struct OptionsView: View {
+    @ObservedObject var authManager: FirebaseAuthManager
+    @State private var recordingQuality = 0
+    @State private var autoSave = true
+    @State private var backgroundRecording = false
+    
+    let recordingQualities = ["Standard", "High", "Lossless"]
+    
+    var body: some View {
+        ZStack {
+            Color(red: 200/255, green: 213/255, blue: 208/255)
+                .ignoresSafeArea()
+            
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("App")
+                        .font(.system(size: 48, weight: .black))
+                        .foregroundColor(.primary)
+                    Text("Settings")
+                        .font(.system(size: 36, weight: .black))
+                        .foregroundColor(.gray.opacity(0.4))
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 60)
+                .padding(.bottom, 30)
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Recording Quality Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recording Quality")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.primary)
+                            
+                            Picker("Recording Quality", selection: $recordingQuality) {
+                                ForEach(0..<recordingQualities.count, id: \.self) { index in
+                                    Text(recordingQualities[index]).tag(index)
+                                }
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                        }
+                        .padding(20)
+                        .background(Color.white.opacity(0.3))
+                        .cornerRadius(16)
+                        
+                        // General Settings Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("General")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.primary)
+                            
+                            VStack(spacing: 12) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Auto-save recordings")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.primary)
+                                        Text("Automatically save when recording stops")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                    Toggle("", isOn: $autoSave)
+                                        .tint(Color(red: 1.0, green: 0.8, blue: 0.0))
+                                }
+                                
+                                Divider()
+                                    .background(Color.gray.opacity(0.2))
+                                
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Background recording")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.primary)
+                                        Text("Continue recording when app is minimized")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                    Toggle("", isOn: $backgroundRecording)
+                                        .tint(Color(red: 1.0, green: 0.8, blue: 0.0))
+                                }
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.white.opacity(0.3))
+                        .cornerRadius(16)
+                        
+                        // Storage Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Storage")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.primary)
+                            
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Text("Clear all recordings")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.red)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.gray)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    // Handle clear all recordings
+                                }
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.white.opacity(0.3))
+                        .cornerRadius(16)
+                        
+                        // About Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("About")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.primary)
+                            
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Text("Version")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text("1.0.0")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.gray)
+                                }
+                                
+                                Divider()
+                                    .background(Color.gray.opacity(0.2))
+                                
+                                HStack {
+                                    Text("Privacy Policy")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.gray)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    // Handle privacy policy
+                                }
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.white.opacity(0.3))
+                        .cornerRadius(16)
+                        
+                        // Account Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Account")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.primary)
+                            
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Text("Sign Out")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.red)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.gray)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    authManager.signOut()
+                                }
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.white.opacity(0.3))
+                        .cornerRadius(16)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 30)
                 }
                 
                 Spacer()
@@ -108,38 +397,38 @@ struct RecordingCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(recording.formattedDate)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appTextSecondary)
                     
                     Text(recording.formattedDuration)
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appTextPrimary)
                     
                     if isPlaying {
                         HStack(spacing: 4) {
                             Text(formatPlaybackTime(playbackTime))
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.0))
+                                .foregroundColor(Color.appPrimary)
                             Text("•")
-                                .foregroundColor(.gray.opacity(0.5))
+                                .foregroundColor(.appTextPlaceholder)
                             Text("Playing")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.gray)
+                                .foregroundColor(.appTextSecondary)
                         }
                     }
                 }
                 
                 Spacer()
                 
-                HStack(spacing: 12) {
+                HStack(spacing: 16) {
                     Button(action: onPlay) {
                         ZStack {
                             Circle()
-                                .fill(isPlaying ? Color(red: 1.0, green: 0.8, blue: 0.0) : Color.gray.opacity(0.15))
+                                .fill(isPlaying ? Color.appPrimary : Color.gray.opacity(0.15))
                                 .frame(width: 50, height: 50)
                             
                             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                                 .font(.system(size: 18))
-                                .foregroundColor(isPlaying ? .black : .primary)
+                                .foregroundColor(isPlaying ? .black : .appTextPrimary)
                         }
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -147,12 +436,12 @@ struct RecordingCard: View {
                     Button(action: onDelete) {
                         ZStack {
                             Circle()
-                                .fill(Color.red.opacity(0.1))
+                                .fill(Color.appError.opacity(0.1))
                                 .frame(width: 50, height: 50)
                             
                             Image(systemName: "trash.fill")
                                 .font(.system(size: 16))
-                                .foregroundColor(.red)
+                                .foregroundColor(.appError)
                         }
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -168,7 +457,7 @@ struct RecordingCard: View {
                             .cornerRadius(2)
                         
                         Rectangle()
-                            .fill(Color(red: 1.0, green: 0.8, blue: 0.0))
+                            .fill(Color.appPrimary)
                             .frame(width: geometry.size.width * CGFloat(playbackTime / recording.duration), height: 4)
                             .cornerRadius(2)
                     }
@@ -177,7 +466,7 @@ struct RecordingCard: View {
             }
         }
         .padding(20)
-        .background(Color.gray.opacity(0.08))
+        .background(Color.appCardBackground)
         .cornerRadius(16)
     }
     
@@ -311,7 +600,6 @@ struct WaveformView: View {
 }
 
 #Preview {
-    ContentView(audioManager: AudioRecorderManager())
-        .environmentObject(FirebaseAuthManager())
+    ContentView()
 }
 
