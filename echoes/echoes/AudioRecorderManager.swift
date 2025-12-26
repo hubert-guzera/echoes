@@ -49,8 +49,11 @@ class AudioRecorderManager: NSObject, ObservableObject {
     private var recordingTimer: Timer?
     private var playbackTimer: Timer?
     
-    private let recordingsKey = "SavedRecordings"
+    // Firebase services
     private let storage = Storage.storage()
+    private let realtimeManager = FirebaseRealtimeManager()
+    
+    private let recordingsKey = "SavedRecordings"
     
     override init() {
         super.init()
@@ -143,6 +146,34 @@ class AudioRecorderManager: NSObject, ObservableObject {
             
             // Upload if user is logged in
             if let user = Auth.auth().currentUser {
+                // Create the storage path that will be used for upload
+                let storagePath = "users/\(user.uid)/\(newRecording.id.uuidString).m4a"
+                
+                // Create the database record first with "incomplete" status
+                let recordingRecord = RecordingRecord(
+                    id: newRecording.id,
+                    fileName: fileName,
+                    storagePath: storagePath,
+                    duration: duration,
+                    status: .incomplete
+                )
+                
+                // Create database record
+                Task {
+                    do {
+                        try await realtimeManager.createRecordingRecord(recordingRecord)
+                        print("✅ Recording record created in database")
+                        
+                        // Update status to uploading
+                        try await realtimeManager.updateRecordingStatus(newRecording.id.uuidString, status: .uploading)
+                        print("✅ Recording status updated to uploading")
+                        
+                    } catch {
+                        print("❌ Failed to create recording record: \(error.localizedDescription)")
+                        // Even if database fails, continue with storage upload
+                    }
+                }
+                
                 uploadRecording(newRecording, userId: user.uid) { [weak self] url in
                     if let url = url {
                         // Update local recording with download URL
@@ -155,6 +186,33 @@ class AudioRecorderManager: NSObject, ObservableObject {
                                 downloadURL: url
                             )
                             self?.saveRecordings()
+                        }
+                        
+                        // Update database record status to complete
+                        Task {
+                            do {
+                                try await self?.realtimeManager.updateRecordingStatus(
+                                    newRecording.id.uuidString,
+                                    status: .complete,
+                                    downloadURL: url.absoluteString
+                                )
+                                print("✅ Recording status updated to complete")
+                            } catch {
+                                print("❌ Failed to update recording status to complete: \(error.localizedDescription)")
+                            }
+                        }
+                    } else {
+                        // Update database record status to failed
+                        Task {
+                            do {
+                                try await self?.realtimeManager.updateRecordingStatus(
+                                    newRecording.id.uuidString,
+                                    status: .failed
+                                )
+                                print("⚠️ Recording status updated to failed")
+                            } catch {
+                                print("❌ Failed to update recording status to failed: \(error.localizedDescription)")
+                            }
                         }
                     }
                 }
@@ -377,6 +435,20 @@ class AudioRecorderManager: NSObject, ObservableObject {
             }
         }
         task.resume()
+    }
+    
+    // MARK: - Firebase Realtime Database
+    
+    func getRecordingRecords() async throws -> [RecordingRecord] {
+        return try await realtimeManager.getAllRecordingRecords()
+    }
+    
+    func deleteRecordingRecord(_ recordId: String) async throws {
+        try await realtimeManager.deleteRecordingRecord(recordId)
+    }
+    
+    func updateRecordingRecordStatus(_ recordId: String, status: RecordingRecord.RecordingStatus, downloadURL: String? = nil) async throws {
+        try await realtimeManager.updateRecordingStatus(recordId, status: status, downloadURL: downloadURL)
     }
 }
 

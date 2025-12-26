@@ -197,6 +197,45 @@ struct OptionsView: View {
                         .background(Color.appCardBackground)
                         .cornerRadius(16)
                         
+                        // Recording Records Section (Debug)
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Recording Records")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.appTextPrimary)
+                            
+                            Button("View All Records") {
+                                Task {
+                                    do {
+                                        let records = try await realtimeManager.getAllRecordingRecords()
+                                        print("📊 Found \(records.count) recording records:")
+                                        for record in records {
+                                            print("  - \(record.fileName) (\(record.statusDisplayText))")
+                                        }
+                                    } catch {
+                                        print("❌ Failed to fetch records: \(error)")
+                                    }
+                                }
+                            }
+                            .foregroundColor(.appPrimary)
+                            .padding(.vertical, 4)
+                            
+                            Button("Create Sample Record") {
+                                Task {
+                                    do {
+                                        try await realtimeManager.createSampleRecordingRecord()
+                                        print("✅ Sample recording record created")
+                                    } catch {
+                                        print("❌ Failed to create sample record: \(error)")
+                                    }
+                                }
+                            }
+                            .foregroundColor(.appPrimary)
+                            .padding(.vertical, 4)
+                        }
+                        .padding(20)
+                        .background(Color.appCardBackground)
+                        .cornerRadius(16)
+                        
                         // General Settings Section
                         VStack(alignment: .leading, spacing: 16) {
                             Text("General")

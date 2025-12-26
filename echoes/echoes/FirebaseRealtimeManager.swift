@@ -129,6 +129,129 @@ class FirebaseRealtimeManager: ObservableObject {
         try await updateUserProfile(sampleProfile)
     }
     
+    /// Creates sample recording record for testing purposes
+    func createSampleRecordingRecord() async throws {
+        let sampleRecord = RecordingRecord(
+            id: UUID(),
+            fileName: "sample_recording.m4a",
+            storagePath: "users/sample/sample_recording.m4a",
+            duration: 45.5,
+            status: .complete,
+            downloadURL: "https://example.com/sample.m4a"
+        )
+        
+        try await createRecordingRecord(sampleRecord)
+    }
+    
+    // MARK: - Recording Management
+    
+    func createRecordingRecord(_ record: RecordingRecord) async throws {
+        guard let currentUser = Auth.auth().currentUser else {
+            throw FirebaseRealtimeError.noAuthenticatedUser
+        }
+        
+        let recordingPath = "users/\(currentUser.uid)/recordings/\(record.id)"
+        let recordingRef = database.child(recordingPath)
+        
+        do {
+            let recordData = try JSONEncoder().encode(record)
+            let recordDict = try JSONSerialization.jsonObject(with: recordData) as? [String: Any]
+            
+            return try await withCheckedThrowingContinuation { continuation in
+                recordingRef.setValue(recordDict) { error, _ in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+        } catch {
+            throw FirebaseRealtimeError.encodingFailed(error)
+        }
+    }
+    
+    func updateRecordingStatus(_ recordId: String, status: RecordingRecord.RecordingStatus, downloadURL: String? = nil) async throws {
+        guard let currentUser = Auth.auth().currentUser else {
+            throw FirebaseRealtimeError.noAuthenticatedUser
+        }
+        
+        let recordingPath = "users/\(currentUser.uid)/recordings/\(recordId)"
+        let recordingRef = database.child(recordingPath)
+        
+        var updates: [String: Any] = ["status": status.rawValue]
+        if let downloadURL = downloadURL {
+            updates["downloadURL"] = downloadURL
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            recordingRef.updateChildValues(updates) { error, _ in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+    
+    func getAllRecordingRecords() async throws -> [RecordingRecord] {
+        guard let currentUser = Auth.auth().currentUser else {
+            throw FirebaseRealtimeError.noAuthenticatedUser
+        }
+        
+        let recordingsPath = "users/\(currentUser.uid)/recordings"
+        let recordingsRef = database.child(recordingsPath)
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            recordingsRef.observeSingleEvent(of: .value) { snapshot in
+                var records: [RecordingRecord] = []
+                
+                if snapshot.exists() {
+                    for child in snapshot.children {
+                        if let childSnapshot = child as? DataSnapshot,
+                           let value = childSnapshot.value,
+                           let jsonData = try? JSONSerialization.data(withJSONObject: value),
+                           let record = try? JSONDecoder().decode(RecordingRecord.self, from: jsonData) {
+                            records.append(record)
+                        }
+                    }
+                }
+                
+                // Sort by creation date, newest first
+                records.sort { record1, record2 in
+                    guard let date1 = record1.createdAtDate, let date2 = record2.createdAtDate else {
+                        return false
+                    }
+                    return date1 > date2
+                }
+                
+                continuation.resume(returning: records)
+            } withCancel: { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    func deleteRecordingRecord(_ recordId: String) async throws {
+        guard let currentUser = Auth.auth().currentUser else {
+            throw FirebaseRealtimeError.noAuthenticatedUser
+        }
+        
+        let recordingPath = "users/\(currentUser.uid)/recordings/\(recordId)"
+        let recordingRef = database.child(recordingPath)
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            recordingRef.removeValue { error, _ in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func removeProfileListener() {
