@@ -10,10 +10,10 @@ import SwiftUI
 struct IssuesView: View {
     // Placeholder data
     let issues = [
-        Issue(title: "Drama with Kate", date: Date()),
-        Issue(title: "Going to the Ibiza", date: Date().addingTimeInterval(-86400)),
-        Issue(title: "Project Deadline", date: Date().addingTimeInterval(-86400 * 3)),
-        Issue(title: "Family Dinner", date: Date().addingTimeInterval(-86400 * 5))
+        Issue(title: "Conversation with Kate", date: Date()),
+        Issue(title: "Vacation Planning", date: Date().addingTimeInterval(-86400)),
+        Issue(title: "Work-Life Balance", date: Date().addingTimeInterval(-86400 * 3)),
+        Issue(title: "Family Dynamics", date: Date().addingTimeInterval(-86400 * 5))
     ]
     
     var body: some View {
@@ -24,10 +24,10 @@ struct IssuesView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Issues")
+                    Text("Topics")
                         .font(.system(size: 48, weight: .black))
                         .foregroundColor(.appTextPrimary)
-                    Text("Stories")
+                    Text("& Stories")
                         .font(.system(size: 36, weight: .black))
                         .foregroundColor(.appTextPlaceholder)
                 }
