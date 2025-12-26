@@ -9,6 +9,7 @@ import SwiftUI
 
 struct OptionsView: View {
     @EnvironmentObject var authManager: FirebaseAuthManager
+    @StateObject private var realtimeManager = FirebaseRealtimeManager()
     @State private var recordingQuality = 0
     @State private var autoSave = true
     @State private var backgroundRecording = false
@@ -59,6 +60,137 @@ struct OptionsView: View {
                                     .font(.system(size: 13))
                                     .foregroundColor(.appTextSecondary)
                                     .lineLimit(2)
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.appCardBackground)
+                        .cornerRadius(16)
+                        
+                        // Profile Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Profile")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.appTextPrimary)
+                            
+                            if realtimeManager.isLoading {
+                                HStack {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("Loading profile...")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.appTextSecondary)
+                                }
+                                .padding(.vertical, 8)
+                            } else if let errorMessage = realtimeManager.errorMessage {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Image(systemName: "exclamationmark.triangle")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.appError)
+                                        Text("Profile Error")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.appError)
+                                    }
+                                    Text(errorMessage)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.appTextSecondary)
+                                        .lineLimit(3)
+                                }
+                                .padding(.vertical, 8)
+                            } else if let profile = realtimeManager.userProfile {
+                                VStack(spacing: 12) {
+                                    // Name
+                                    HStack {
+                                        Text("Name")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.appTextPrimary)
+                                        Spacer()
+                                        Text(profile.displayName)
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.appTextSecondary)
+                                    }
+                                    
+                                    Divider()
+                                        .background(Color.gray.opacity(0.2))
+                                    
+                                    // Email
+                                    HStack {
+                                        Text("Email")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.appTextPrimary)
+                                        Spacer()
+                                        Text(profile.displayEmail)
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.appTextSecondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    
+                                    Divider()
+                                        .background(Color.gray.opacity(0.2))
+                                    
+                                    // Age
+                                    HStack {
+                                        Text("Age")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.appTextPrimary)
+                                        Spacer()
+                                        Text(profile.displayAge)
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.appTextSecondary)
+                                    }
+                                    
+                                    Divider()
+                                        .background(Color.gray.opacity(0.2))
+                                    
+                                    // Last Login
+                                    HStack {
+                                        Text("Last Login")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.appTextPrimary)
+                                        Spacer()
+                                        Text(profile.lastLoginFormatted)
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.appTextSecondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.tail)
+                                    }
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Image(systemName: "person.circle")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.appTextSecondary)
+                                        Text("No Profile Data")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.appTextSecondary)
+                                    }
+                                    Text("Profile information is not available")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.appTextPlaceholder)
+                                    
+                                    // Development helper button
+                                    Button(action: {
+                                        Task {
+                                            do {
+                                                try await realtimeManager.createSampleProfileData()
+                                            } catch {
+                                                print("Failed to create sample data: \(error)")
+                                            }
+                                        }
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "plus.circle")
+                                                .font(.system(size: 14))
+                                            Text("Create Sample Data")
+                                                .font(.system(size: 14, weight: .medium))
+                                        }
+                                        .foregroundColor(.appPrimary)
+                                    }
+                                    .padding(.top, 8)
+                                }
+                                .padding(.vertical, 8)
                             }
                         }
                         .padding(20)
@@ -178,6 +310,21 @@ struct OptionsView: View {
                 }
                 
                 Spacer()
+            }
+        }
+        .onAppear {
+            // Start listening to profile data when view appears
+            if authManager.isAuthenticated {
+                realtimeManager.startListeningToUserProfile()
+            }
+        }
+        .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+            if isAuthenticated {
+                // User signed in, start listening
+                realtimeManager.startListeningToUserProfile()
+            } else {
+                // User signed out, stop listening
+                realtimeManager.stopListeningToUserProfile()
             }
         }
     }
