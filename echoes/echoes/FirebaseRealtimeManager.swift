@@ -15,8 +15,14 @@ class FirebaseRealtimeManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
+    // Published properties for recordings to enable real-time updates
+    @Published var recordingRecords: [RecordingRecord] = []
+    @Published var isLoadingRecordings = false
+    @Published var recordingError: String?
+    
     private var database: DatabaseReference
     private var profileListener: DatabaseHandle?
+    private var recordingsListener: DatabaseHandle?
     
     init() {
         // Use the Europe West 1 database URL
@@ -26,6 +32,7 @@ class FirebaseRealtimeManager: ObservableObject {
     
     deinit {
         removeProfileListener()
+        removeRecordingsListener()
     }
     
     // MARK: - Public Methods
@@ -136,8 +143,7 @@ class FirebaseRealtimeManager: ObservableObject {
             fileName: "sample_recording.m4a",
             storagePath: "users/sample/sample_recording.m4a",
             duration: 45.5,
-            status: .complete,
-            downloadURL: "https://example.com/sample.m4a"
+            status: .incomplete // Note: should be incomplete for post-processing
         )
         
         try await createRecordingRecord(sampleRecord)
@@ -171,7 +177,7 @@ class FirebaseRealtimeManager: ObservableObject {
         }
     }
     
-    func updateRecordingStatus(_ recordId: String, status: RecordingRecord.RecordingStatus, downloadURL: String? = nil) async throws {
+    func updateRecordingStatus(_ recordId: String, status: RecordingRecord.RecordingStatus) async throws {
         guard let currentUser = Auth.auth().currentUser else {
             throw FirebaseRealtimeError.noAuthenticatedUser
         }
@@ -179,10 +185,7 @@ class FirebaseRealtimeManager: ObservableObject {
         let recordingPath = "users/\(currentUser.uid)/recordings/\(recordId)"
         let recordingRef = database.child(recordingPath)
         
-        var updates: [String: Any] = ["status": status.rawValue]
-        if let downloadURL = downloadURL {
-            updates["downloadURL"] = downloadURL
-        }
+        let updates: [String: Any] = ["status": status.rawValue]
         
         return try await withCheckedThrowingContinuation { continuation in
             recordingRef.updateChildValues(updates) { error, _ in
@@ -259,6 +262,88 @@ class FirebaseRealtimeManager: ObservableObject {
             database.removeObserver(withHandle: listener)
             profileListener = nil
         }
+    }
+    
+    private func removeRecordingsListener() {
+        if let listener = recordingsListener {
+            database.removeObserver(withHandle: listener)
+            recordingsListener = nil
+        }
+    }
+    
+    // MARK: - Real-time Recordings Listener
+    
+    func startListeningToRecordings() {
+        guard let currentUser = Auth.auth().currentUser else {
+            recordingError = "No authenticated user found"
+            return
+        }
+        
+        removeRecordingsListener()
+        
+        let recordingsPath = "users/\(currentUser.uid)/recordings"
+        let recordingsRef = database.child(recordingsPath)
+        
+        isLoadingRecordings = true
+        recordingError = nil
+        
+        recordingsListener = recordingsRef.observe(.value) { [weak self] snapshot in
+            DispatchQueue.main.async {
+                self?.isLoadingRecordings = false
+                
+                var records: [RecordingRecord] = []
+                
+                if snapshot.exists() {
+                    print("📊 Database snapshot exists with \(snapshot.childrenCount) children")
+                    
+                    for child in snapshot.children {
+                        if let childSnapshot = child as? DataSnapshot,
+                           let value = childSnapshot.value {
+                            
+                            print("🔍 Processing child: \(childSnapshot.key)")
+                            print("📄 Raw data: \(value)")
+                            
+                            do {
+                                let jsonData = try JSONSerialization.data(withJSONObject: value)
+                                let record = try JSONDecoder().decode(RecordingRecord.self, from: jsonData)
+                                records.append(record)
+                                print("✅ Successfully decoded: \(record.fileName)")
+                            } catch {
+                                print("❌ Failed to decode record \(childSnapshot.key): \(error)")
+                                print("📄 Problematic data: \(value)")
+                            }
+                        }
+                    }
+                } else {
+                    print("📊 No recordings found in database")
+                }
+                
+                // Sort by creation date, newest first
+                records.sort { record1, record2 in
+                    guard let date1 = record1.createdAtDate, let date2 = record2.createdAtDate else {
+                        return false
+                    }
+                    return date1 > date2
+                }
+                
+                self?.recordingRecords = records
+                self?.recordingError = nil
+                print("🔄 Real-time update: \(records.count) recordings loaded")
+            }
+        } withCancel: { [weak self] error in
+            DispatchQueue.main.async {
+                self?.isLoadingRecordings = false
+                self?.recordingError = "Database error: \(error.localizedDescription)"
+                print("❌ Firebase recordings listener error: \(error)")
+            }
+        }
+    }
+    
+    func stopListeningToRecordings() {
+        removeRecordingsListener()
+        recordingRecords = []
+        recordingError = nil
+        isLoadingRecordings = false
     }
 }
 

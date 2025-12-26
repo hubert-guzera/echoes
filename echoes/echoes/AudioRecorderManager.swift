@@ -188,19 +188,9 @@ class AudioRecorderManager: NSObject, ObservableObject {
                             self?.saveRecordings()
                         }
                         
-                        // Update database record status to complete
-                        Task {
-                            do {
-                                try await self?.realtimeManager.updateRecordingStatus(
-                                    newRecording.id.uuidString,
-                                    status: .complete,
-                                    downloadURL: url.absoluteString
-                                )
-                                print("✅ Recording status updated to complete")
-                            } catch {
-                                print("❌ Failed to update recording status to complete: \(error.localizedDescription)")
-                            }
-                        }
+                        // Keep database record status as incomplete - file needs post-processing
+                        // Don't update to complete since post-processing is still needed
+                        print("✅ File uploaded to storage, keeping status as 'incomplete' for post-processing")
                     } else {
                         // Update database record status to failed
                         Task {
@@ -447,8 +437,13 @@ class AudioRecorderManager: NSObject, ObservableObject {
         try await realtimeManager.deleteRecordingRecord(recordId)
     }
     
-    func updateRecordingRecordStatus(_ recordId: String, status: RecordingRecord.RecordingStatus, downloadURL: String? = nil) async throws {
-        try await realtimeManager.updateRecordingStatus(recordId, status: status, downloadURL: downloadURL)
+    func updateRecordingRecordStatus(_ recordId: String, status: RecordingRecord.RecordingStatus) async throws {
+        try await realtimeManager.updateRecordingStatus(recordId, status: status)
+    }
+    
+    /// Mark recording as complete after post-processing is finished
+    func markRecordingAsComplete(_ recordId: String) async throws {
+        try await realtimeManager.updateRecordingStatus(recordId, status: .complete)
     }
 }
 

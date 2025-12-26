@@ -231,6 +231,24 @@ struct OptionsView: View {
                             }
                             .foregroundColor(.appPrimary)
                             .padding(.vertical, 4)
+                            
+                            Button("Mark First Record Complete") {
+                                Task {
+                                    do {
+                                        let records = try await realtimeManager.getAllRecordingRecords()
+                                        if let firstRecord = records.first {
+                                            try await realtimeManager.updateRecordingStatus(firstRecord.id, status: .complete)
+                                            print("✅ Marked recording \(firstRecord.fileName) as complete")
+                                        } else {
+                                            print("⚠️ No recordings found to mark as complete")
+                                        }
+                                    } catch {
+                                        print("❌ Failed to mark recording as complete: \(error)")
+                                    }
+                                }
+                            }
+                            .foregroundColor(.green)
+                            .padding(.vertical, 4)
                         }
                         .padding(20)
                         .background(Color.appCardBackground)
